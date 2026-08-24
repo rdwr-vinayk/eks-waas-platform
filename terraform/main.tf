@@ -378,3 +378,22 @@ resource "aws_ssm_document" "waas_deploy" {
     ]
   })
 }
+
+
+resource "null_resource" "run_deploy" {
+
+  depends_on = [
+    aws_eks_node_group.control_nodes,
+    aws_ssm_document.waas_deploy
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOT
+aws ssm send-command \
+  --document-name waas-deploy \
+  --targets Key=tag:Role,Values=control \
+  --comment "WAAS Deployment" \
+  --region ap-south-1
+EOT
+  }
+}
