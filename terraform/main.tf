@@ -233,6 +233,10 @@ resource "aws_eks_node_group" "control_nodes" {
   node_role_arn   = aws_iam_role.node_role.arn
   subnet_ids      = [aws_subnet.private_1.id, aws_subnet.private_2.id]
 
+  labels = {
+    role = "control"
+  }
+
   scaling_config {
     desired_size = 1
     max_size     = 2
@@ -243,6 +247,7 @@ resource "aws_eks_node_group" "control_nodes" {
 
   tags = {
     Name = "control-node-group"
+    Role = "control"
   }
 }
 
@@ -349,3 +354,27 @@ resource "aws_security_group_rule" "eks_origin_api_access" {
   depends_on = [aws_eks_cluster.origin]
 }
 
+resource "aws_ssm_document" "waas_deploy" {
+  name          = "waas-deploy"
+  document_type = "Command"
+
+  content = jsonencode({
+    schemaVersion = "2.2"
+
+    mainSteps = [
+      {
+        action = "aws:runShellScript"
+        name   = "deploy"
+
+        inputs = {
+          runCommand = [
+            "cd /tmp",
+            "aws s3 cp s3://vinay-kwaap-bucket/scripts/deploy.sh .",
+            "chmod +x deploy.sh",
+            "./deploy.sh"
+          ]
+        }
+      }
+    ]
+  })
+}
