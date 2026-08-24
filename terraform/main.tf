@@ -397,3 +397,17 @@ aws ssm send-command \
 EOT
   }
 }
+
+# ---------------- Outputs ----------------
+
+output "control_cluster_name" {
+  value = aws_eks_cluster.control.name
+}
+
+output "data_cluster_name" {
+  value = aws_eks_cluster.data.name
+}
+
+output "origin_cluster_name" {
+  value = aws_eks_cluster.origin.name
+}
