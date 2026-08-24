@@ -411,3 +411,15 @@ output "data_cluster_name" {
 output "origin_cluster_name" {
   value = aws_eks_cluster.origin.name
 }
+
+output "control_cluster_version" {
+  value = aws_eks_cluster.control.version
+}
+
+output "data_cluster_version" {
+  value = aws_eks_cluster.data.version
+}
+
+output "origin_cluster_version" {
+  value = aws_eks_cluster.origin.version
+}
