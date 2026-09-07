@@ -176,6 +176,29 @@ resource "aws_iam_role_policy_attachment" "node_policy3" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
 }
 
+resource "aws_iam_role_policy" "node_eks_update_policy" {
+  name = "eks-cluster-update-policy"
+  role = aws_iam_role.node_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeCluster",
+          "eks:DescribeUpdate",
+          "eks:UpdateClusterConfig"
+        ]
+        Resource = [
+          "arn:aws:eks:ap-south-1:714010226847:cluster/eks-origin-plane"
+        ]
+      }
+    ]
+  })
+}
+
+
 # ---------------- DATA PLANE ----------------
 resource "aws_eks_cluster" "data" {
   name     = "eks-data-plane"
@@ -233,10 +256,6 @@ resource "aws_eks_node_group" "control_nodes" {
   node_role_arn   = aws_iam_role.node_role.arn
   subnet_ids      = [aws_subnet.private_1.id, aws_subnet.private_2.id]
 
-  labels = {
-    role = "control"
-  }
-
   scaling_config {
     desired_size = 1
     max_size     = 2
@@ -247,7 +266,6 @@ resource "aws_eks_node_group" "control_nodes" {
 
   tags = {
     Name = "control-node-group"
-    Role = "control"
   }
 }
 
@@ -354,72 +372,3 @@ resource "aws_security_group_rule" "eks_origin_api_access" {
   depends_on = [aws_eks_cluster.origin]
 }
 
-resource "aws_ssm_document" "waas_deploy" {
-  name          = "waas-deploy"
-  document_type = "Command"
-
-  content = jsonencode({
-    schemaVersion = "2.2"
-
-    mainSteps = [
-      {
-        action = "aws:runShellScript"
-        name   = "deploy"
-
-        inputs = {
-          runCommand = [
-            "cd /tmp",
-            "aws s3 cp s3://vinay-kwaap-bucket/scripts/deploy.sh .",
-            "chmod +x deploy.sh",
-            "./deploy.sh"
-          ]
-        }
-      }
-    ]
-  })
-}
-
-
-resource "null_resource" "run_deploy" {
-
-  depends_on = [
-    aws_eks_node_group.control_nodes,
-    aws_ssm_document.waas_deploy
-  ]
-
-  provisioner "local-exec" {
-    command = <<EOT
-aws ssm send-command \
-  --document-name waas-deploy \
-  --targets Key=tag:Role,Values=control \
-  --comment "WAAS Deployment" \
-  --region ap-south-1
-EOT
-  }
-}
-
-# ---------------- Outputs ----------------
-
-output "control_cluster_name" {
-  value = aws_eks_cluster.control.name
-}
-
-output "data_cluster_name" {
-  value = aws_eks_cluster.data.name
-}
-
-output "origin_cluster_name" {
-  value = aws_eks_cluster.origin.name
-}
-
-output "control_cluster_version" {
-  value = aws_eks_cluster.control.version
-}
-
-output "data_cluster_version" {
-  value = aws_eks_cluster.data.version
-}
-
-output "origin_cluster_version" {
-  value = aws_eks_cluster.origin.version
-}
